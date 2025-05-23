@@ -5,15 +5,16 @@ from torch.utils.data import DataLoader, Dataset, random_split
 from torchvision import models
 from PIL import Image
 import torchvision.transforms.functional as TF
+import matplotlib.pyplot as plt
 
 import synchrotron_nn as snn
 
 # Configuration
 DATA_DIR = "../SOFT/SOFT_runs/parameter_scan/data_combined"
 IMG_SIZE = 600
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 NUM_EPOCHS = 10
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cpu")
 
 #generator = torch.Generator().manual_seed(42)
 
@@ -112,16 +113,16 @@ for epoch in range(NUM_EPOCHS):
         correct_runaway += (pred_runaway_binary == runaway_labels.long()).sum().item()
         correct_q += ((pred_q.argmax(dim=1) == q_labels) & mask).sum().item()
         total_loss += loss.item()
-        
-        # Save the losses during the current epoch
-        train_losses.append(total_loss)
-        train_runaway_accs.append(correct_runaway / total)
-        train_q_accs.append(correct_q / max(total_runaway, 1))
+
+    # Append average metrics once per epoch
+    train_losses.append(total_loss / len(train_loader))
+    train_runaway_accs.append(correct_runaway / total)
+    train_q_accs.append(correct_q / max(total_runaway, 1))
 
     print(f"Epoch {epoch+1}/{NUM_EPOCHS} | "
-          f"Train Loss: {total_loss:.3f} | "
-          f"Runaway Acc: {correct_runaway / total:.2f} | "
-          f"Q Acc: {correct_q / max(total_runaway, 1):.2f}")
+          f"Train Loss: {train_losses[-1]:.3f} | "
+          f"Runaway Acc: {train_runaway_accs[-1]:.2f} | "
+          f"Q Acc: {train_q_accs[-1]:.2f}")
 
     # Validation loop
     model.eval()
@@ -154,23 +155,21 @@ for epoch in range(NUM_EPOCHS):
             pred_runaway_binary = (pred_runaway > 0.5).long()
             val_correct_runaway += (pred_runaway_binary == runaway_labels.long()).sum().item()
             val_correct_q += ((pred_q.argmax(dim=1) == q_labels) & mask).sum().item()
-            
-            # Save accuracy after validation
-            val_losses.append(val_loss)
-            val_runaway_accs.append(val_correct_runaway / val_total)
-            val_q_accs.append(val_correct_q / max(val_runaway_total, 1))
-    
 
-    print(f"   >> Validation Loss: {val_loss:.3f} | "
-          f"Runaway Acc: {val_correct_runaway / val_total:.2f} | "
-          f"Q Acc: {val_correct_q / max(val_runaway_total, 1):.2f}")
+    # Append validation metrics once per epoch
+    val_losses.append(val_loss / len(val_loader))
+    val_runaway_accs.append(val_correct_runaway / val_total)
+    val_q_accs.append(val_correct_q / max(val_runaway_total, 1))
+
+    print(f"   >> Validation Loss: {val_losses[-1]:.3f} | "
+          f"Runaway Acc: {val_runaway_accs[-1]:.2f} | "
+          f"Q Acc: {val_q_accs[-1]:.2f}")
+
 
 
 # Save model after training
 torch.save(model.state_dict(), "model_weights.pth")
 print("Training complete.")
-
-import matplotlib.pyplot as plt
 
 epochs = range(1, NUM_EPOCHS + 1)
 
