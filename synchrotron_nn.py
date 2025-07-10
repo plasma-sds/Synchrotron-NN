@@ -1,5 +1,6 @@
 ## The neural network class
 
+import torch
 from torch import nn
 from torchvision import models
 
